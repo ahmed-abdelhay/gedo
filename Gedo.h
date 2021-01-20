@@ -7,7 +7,7 @@
  * cause a link error.
  * List of features:
  * - Utils:
- *  - defer macro: similar to the defer keyword in go this can be used to execute some action at 
+ *  - defer macro: similar to the defer keyword in go this can be used to execute some action at
  *      the end of a scope.
  *      example:
  *          void* data = malloc(size);
@@ -24,7 +24,7 @@
  *      - Arena allocator:  simple linear allocator that allocates block upfront and keep using it,
  *          this is very useful if the user wants in temp allocations where the user knows upfront what
  *          is the size that they will be using.
- *      it also provides a default allocator where the user can set it and it will be used in 
+ *      it also provides a default allocator where the user can set it and it will be used in
  *      all the functions in this library by default.
  *      e.g.
  *           Allocator* alloc = CreateMyCustomAllocator(...);
@@ -40,7 +40,7 @@
  *      - StaticArray<T,N>  owning stretchy array of type T allocated on the stack with max size N.
  *      - Array<T,N>        owning stretchy array of type T allocated using Allocator*.
  *      - HashTable<T>      TODO.
- * 
+ *
  * - Maths:
  *      - Math code uses double not float.
  *      - 2D/3D Vector.
@@ -49,12 +49,12 @@
  *      - Matrix/vector and Matrix/Matrix multiplication support.
  *      - Common geometrical operation like DotProduct and CrossProduct, Normalise, Transpose, Rotate.
  *      - commonly used functions in computer graphics like Perspective and lookAt.
- * 
+ *
  *      TODO: Add SIMD support.
- * 
+ *
  * - UUID:
  *      Provides a cross platform UUID generation function and compare.
- * 
+ *
  * - File I/O:
  *      Provides a cross platform way of handling files.
  *      - Read whole file           ReadFile(const char* fileName, Allocator& allocator);
@@ -62,7 +62,7 @@
  *      - Check if a file exists    DoesFileExist(const char* fileName, Allocator& allocator);
  *      - Get the file size         GetFileSize(const char* fileName, Allocator& allocator);
  *      - Check a path type         GetPathType(const char* path, Allocator& allocator);
- * 
+ *
  * - Strings:
  *      Provides custom implementation of both String (owning container) and StringView (non owning view).
  *      it uses the Allocator* interface for managing memory
@@ -76,7 +76,7 @@
  *          - SplitStringView(const char* string, char delim, Allocator& allocator);
  *          - SplitStringIntoLines(const char* string, Allocator& allocator);
  *          - SplitStringViewIntoLines(const char* string, char delim, Allocator& allocator);
- * 
+ *
  * - Bitmaps:
  *      Provide a way of creating bitmap (colored and mono) and blit data to the bitmap,
  *      it also provide some util for creating colors, rect, and define some common colors.
@@ -325,47 +325,35 @@ BinarySearch(T* p, size_t size, const T& key)
 //------------------Math----------------------------//
 static const double PI = 3.14159265358979323846264338327950288;
 
-struct Vec2d
+union Vec2d
 {
-    union
+    struct
     {
-        struct
-        {
-            double x, y;
-        };
-        double data[2];
+        double x, y;
     };
+    double data[2];
 };
 
-struct Vec3d
+union Vec3d
 {
-    union
+    struct
     {
-        struct
-        {
-            double x, y, z;
-        };
-        double data[3];
+        double x, y, z;
     };
+    double data[3];
 };
 
 // the matrices are column major.
-struct Mat3
+union Mat3
 {
-    union
-    {
-        double elements[3][3];
-        double data[9];
-    };
+    double elements[3][3];
+    double data[9];
 };
 
-struct Mat4
+union Mat4
 {
-    union
-    {
-        double elements[4][4];
-        double data[16];
-    };
+    double elements[4][4];
+    double data[16];
 };
 
 static Vec2d
@@ -851,6 +839,13 @@ ArrayView<T> CreateArrayView(const T arr[])
 //-------------------------------------------------------------//
 
 //--------------------------Strings----------------------------//
+// Can be used when parsing a file.
+struct Buffer
+{
+    const char* data = NULL;
+    size_t size = 0;
+    size_t cursor = 0;
+};
 
 static size_t
 StringLength(const char* string);
