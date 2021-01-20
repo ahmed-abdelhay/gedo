@@ -5,6 +5,86 @@
  * handling. to use the code include this file and #define GEDO_IMPLEMENTATION
  * before including it. defining GEDO_IMPLEMENTATION in 2 or more cpp files will
  * cause a link error.
+ * List of features:
+ * - Utils:
+ *  - defer macro: similar to the defer keyword in go this can be used to execute some action at 
+ *      the end of a scope.
+ *      example:
+ *          void* data = malloc(size);
+ *          defer(free(data));  // this code will be executed at the end of the current scope.
+ * - General algorithms:
+ *      - Min,Max,Clamp
+ *      - ArrayCount: get the count of a constant sized c array.
+ *      - QuickSort.
+ *      - BinarySearch.
+ * - Memory utils:
+ *      provide Allocator interface that proved Allocate and Free functions,
+ *      it also provides some ready implementations allocators:
+ *      - Malloc allocator: the default c stdlib allocator.
+ *      - Arena allocator:  simple linear allocator that allocates block upfront and keep using it,
+ *          this is very useful if the user wants in temp allocations where the user knows upfront what
+ *          is the size that they will be using.
+ *      it also provides a default allocator where the user can set it and it will be used in 
+ *      all the functions in this library by default.
+ *      e.g.
+ *           Allocator* alloc = CreateMyCustomAllocator(...);
+ *           SetDefaultAllocator(alloc);
+ *           MemoryBlock block = ReadFile(fileName); // this memory block will be allocated from alloc.
+ *      it also provides some conversion between units utils:
+ *           - BytesToMegaBytes(size_t bytes);
+ *           - BytesToGigaBytes(size_t bytes);
+ *           - MegaBytesToBytes(size_t megabytes);
+ *           - GigaBytesToBytes(size_t gigabytes);
+ * - Containers:
+ *      - ArrayView<T>      a non owning view of array of type T.
+ *      - StaticArray<T,N>  owning stretchy array of type T allocated on the stack with max size N.
+ *      - Array<T,N>        owning stretchy array of type T allocated using Allocator*.
+ *      - HashTable<T>      TODO.
+ * 
+ * - Maths:
+ *      - Math code uses double not float.
+ *      - 2D/3D Vector.
+ *      - 3x3 Matrix and 4x4 Matrix.
+ *      - operator overloading for +,*,- between different types.
+ *      - Matrix/vector and Matrix/Matrix multiplication support.
+ *      - Common geometrical operation like DotProduct and CrossProduct, Normalise, Transpose, Rotate.
+ *      - commonly used functions in computer graphics like Perspective and lookAt.
+ * 
+ *      TODO: Add SIMD support.
+ * 
+ * - UUID:
+ *      Provides a cross platform UUID generation function and compare.
+ * 
+ * - File I/O:
+ *      Provides a cross platform way of handling files.
+ *      - Read whole file           ReadFile(const char* fileName, Allocator& allocator);
+ *      - Write whole file          WriteFile(const char* fileName, MemoryBlock block, Allocator& allocator);
+ *      - Check if a file exists    DoesFileExist(const char* fileName, Allocator& allocator);
+ *      - Get the file size         GetFileSize(const char* fileName, Allocator& allocator);
+ *      - Check a path type         GetPathType(const char* path, Allocator& allocator);
+ * 
+ * - Strings:
+ *      Provides custom implementation of both String (owning container) and StringView (non owning view).
+ *      it uses the Allocator* interface for managing memory
+ *      it also provides some useful functions like:
+ *          - StringLength(const char* string);
+ *          - GetFileExtension(const char* string);
+ *          - CompareStrings(const char* str1, const char* str2);
+ *          - CompareStrings(const StringView str1, const StringView str2);
+ *          - ConcatStrings(const String* strings, size_t stringsCount, char seperator);
+ *          - SplitString(const char* string, char delim, Allocator& allocator);
+ *          - SplitStringView(const char* string, char delim, Allocator& allocator);
+ *          - SplitStringIntoLines(const char* string, Allocator& allocator);
+ *          - SplitStringViewIntoLines(const char* string, char delim, Allocator& allocator);
+ * 
+ * - Bitmaps:
+ *      Provide a way of creating bitmap (colored and mono) and blit data to the bitmap,
+ *      it also provide some util for creating colors, rect, and define some common colors.
+ *        Blit functions:
+ *            FillRectangle(ColorBitmap& dest, Rect fillArea, const ColorBitmap& src);
+ *            FillRectangle(ColorBitmap& dest, Rect fillArea, const Bitmap& mask, Color c);
+ *            FillRectangle(ColorBitmap& dest, Rect fillArea, Color color);
+ *
  */
 #if !defined GEDO_H
 #define GEDO_H
@@ -31,6 +111,7 @@
 #endif // __linux__
 
 #include <stdint.h>
+#include <math.h>
 
 #if !defined GEDO_ASSERT
 #include <assert.h>
@@ -239,6 +320,176 @@ BinarySearch(T* p, size_t size, const T& key)
                      return a == key;
                  });
 }
+//--------------------------------------------------//
+
+//------------------Math----------------------------//
+static const double PI = 3.14159265358979323846264338327950288;
+
+struct Vec2d
+{
+    union
+    {
+        struct
+        {
+            double x, y;
+        };
+        double data[2];
+    };
+};
+
+struct Vec3d
+{
+    union
+    {
+        struct
+        {
+            double x, y, z;
+        };
+        double data[3];
+    };
+};
+
+// the matrices are column major.
+struct Mat3
+{
+    union
+    {
+        double elements[3][3];
+        double data[9];
+    };
+};
+
+struct Mat4
+{
+    union
+    {
+        double elements[4][4];
+        double data[16];
+    };
+};
+
+static Vec2d
+operator+(const Vec2d a, const Vec2d& b);
+
+static Vec2d
+operator-(const Vec2d a, const Vec2d& b);
+
+static Vec2d
+operator*(const Vec2d a, const Vec2d& b);
+
+static Vec2d
+operator*(const Vec2d a, double x);
+
+static Vec2d
+operator*(double x, const Vec2d a);
+
+static Vec3d
+operator+(const Vec3d a, const Vec3d& b);
+
+static Vec3d
+operator-(const Vec3d a, const Vec3d& b);
+
+static Vec3d
+operator*(const Vec3d a, const Vec3d& b);
+
+static Vec3d
+operator*(const Vec3d a, double x);
+
+static Vec3d
+operator*(double x, const Vec3d a);
+
+static Vec3d
+operator*(const Mat3 a, const Vec3d& v);
+
+static Mat4
+operator*(const Mat4& left, const Mat4& right);
+
+static Mat4
+operator*(Mat4 left, double x);
+
+static Vec3d
+CrossProduct(const Vec3d a, const Vec3d& b);
+
+static double
+DotProduct(const Vec3d a, const Vec3d& b);
+
+static double
+DotProduct(const Vec2d a, const Vec2d& b);
+
+static double
+DotProduct(const double a[4], const double b[4]);
+
+static double
+Length(const Vec3d& v);
+
+static double
+Length(const Vec2d& v);
+
+static void
+Normalise(Vec3d& v);
+
+static void
+Normalise(Vec2d& v);
+
+static Vec3d
+Normalised(const Vec3d& v);
+
+static
+Vec2d Normalised(const Vec2d& v);
+
+static
+Mat3 Transpose(Mat3 m);
+
+static
+Mat4 Transpose(Mat4 m);
+
+static Mat4
+Identity();
+
+static Mat4
+Translate(const Mat4& m, Vec3d translation);
+
+static Mat4
+Rotate(const Mat4& m, double angle, Vec3d v);
+
+/*
+ * @param[in] fovy    Specifies the field of view angle, in degrees, in the y direction.
+ * @param[in] aspect  Specifies the aspect ratio that determines the field of view in the x direction. The aspect ratio is the ratio of x (width) to y (height).
+ * @param[in] zNear   Specifies the distance from the viewer to the near clipping plane (always positive).
+ * @param[in] zFar    Specifies the distance from the viewer to the far clipping plane (always positive).
+*/
+static Mat4
+Perspective(double fovy, double aspect,
+            double zNear, double zFar);
+
+/*!
+ * @brief set up view matrix
+ *
+ * NOTE: The UP vector must not be parallel to the line of sight from
+ *       the eye point to the reference point
+ *
+ * @param[in]  eye    eye vector
+ * @param[in]  center center vector
+ * @param[in]  up     up vector
+ * @param[out] dest   result matrix
+ */
+static Mat4
+LookAt(const Vec3d& eye, const Vec3d& center, const Vec3d& up);
+
+inline double
+Deg2Rad(double v)
+{
+    static double deg2rad = PI / 180.0;
+    return v * deg2rad;
+}
+
+inline double
+Rad2Deg(double v)
+{
+    static double rad2deg = 180.0 / PI;
+    return v * rad2deg;
+}
+
 //--------------------------------------------------//
 
 //-----------------UUID-----------------------------//
@@ -1748,6 +1999,294 @@ CompareUUID(const UUId& a, const UUId& b)
 }
 
 //------------------------------------------------------------//
+
+//--------------------Math-----------------------------------//
+Vec2d
+operator+(const Vec2d a, const Vec2d& b)
+{
+    return Vec2d{ a.x + b.x, a.y + b.y };
+}
+
+Vec2d
+operator-(const Vec2d a, const Vec2d& b)
+{
+    return Vec2d{ a.x - b.x, a.y - b.y };
+}
+
+Vec2d
+operator*(const Vec2d a, const Vec2d& b)
+{
+    return Vec2d{ a.x * b.x, a.y * b.y };
+}
+
+Vec2d
+operator*(const Vec2d a, double x)
+{
+    return Vec2d{ a.x * x, a.y * x };
+}
+
+Vec2d
+operator*(double x, const Vec2d a)
+{
+    return Vec2d{ a.x * x, a.y * x };
+}
+
+Vec3d
+operator+(const Vec3d a, const Vec3d& b)
+{
+    return Vec3d{ a.x + b.x, a.y + b.y, a.z + b.z };
+}
+
+Vec3d
+operator-(const Vec3d a, const Vec3d& b)
+{
+    return Vec3d{ a.x - b.x, a.y - b.y, a.z - b.z };
+}
+
+Vec3d
+operator*(const Vec3d a, const Vec3d& b)
+{
+    return Vec3d{ a.x * b.x, a.y * b.y, a.z * b.z };
+}
+
+Vec3d
+operator*(const Vec3d a, double x)
+{
+    return Vec3d{ a.x * x, a.y * x, a.z * x };
+}
+
+Vec3d
+operator*(double x, const Vec3d a)
+{
+    return Vec3d{ a.x * x, a.y * x, a.z * x };
+}
+
+double
+DotProduct(const Vec3d a, const Vec3d& b)
+{
+    return a.x * b.x + a.y * b.y + a.z * b.z;
+}
+
+double
+DotProduct(const Vec2d a, const Vec2d& b)
+{
+    return a.x * b.x + a.y * b.y;
+}
+
+double
+DotProduct(const double a[4], const double b[4])
+{
+    return a[0] * b[0] + a[1] * b[1] + a[2] * b[2] + a[3] * b[3];
+}
+
+Mat4
+operator*(const Mat4& left, const Mat4& right)
+{
+    Mat4 result;
+    for (int columns = 0; columns < 4; ++columns)
+    {
+        for (int rows = 0; rows < 4; ++rows)
+        {
+            double sum = 0;
+            for (int currentMatrice = 0; currentMatrice < 4; ++currentMatrice)
+            {
+                sum += left.elements[currentMatrice][rows] * right.elements[columns][currentMatrice];
+            }
+            result.elements[columns][rows] = sum;
+        }
+    }
+    return result;
+}
+
+Mat4
+operator*(Mat4 left, double x)
+{
+    for (int columns = 0; columns < 4; ++columns)
+    {
+        for (int rows = 0; rows < 4; ++rows)
+        {
+            left.elements[columns][rows] *= x;
+        }
+    }
+    return left;
+}
+
+Vec3d
+operator*(const Mat3 a, const Vec3d& v)
+{
+    Vec3d r;
+    for (int rows = 0; rows < 3; ++rows)
+    {
+        double sum = 0;
+        for (int columns = 0; columns < 3; ++columns)
+        {
+            sum += a.elements[columns][rows] * v.data[columns];
+        }
+        r.data[rows] = sum;
+    }
+    return r;
+}
+
+Vec3d
+CrossProduct(const Vec3d a, const Vec3d& b)
+{
+    return Vec3d{ a.y * b.z - a.z * b.y,
+                  a.z * b.x - a.x * b.z,
+                  a.x * b.y - a.y * b.x };
+}
+
+double
+Length(const Vec2d& v)
+{
+    return sqrtf(v.x * v.x + v.y * v.y);
+}
+
+double
+Length(const Vec3d& v)
+{
+    return sqrtf(v.x * v.x + v.y * v.y + v.z * v.z);
+}
+
+void
+Normalise(Vec2d& v)
+{
+    const double length = Length(v);
+    v.x /= length;
+    v.y /= length;
+}
+
+Vec2d
+Normalised(const Vec2d& v)
+{
+    const double length = Length(v);
+    return Vec2d{ v.x / length, v.y / length };
+}
+
+void
+Normalise(Vec3d& v)
+{
+    const double length = Length(v);
+    v.x /= length;
+    v.y /= length;
+    v.z /= length;
+}
+
+Vec3d
+Normalised(const Vec3d& v)
+{
+    const double length = Length(v);
+    return Vec3d{ v.x / length, v.y / length, v.z / length };
+}
+
+Mat4
+Transpose(Mat4 m)
+{
+    Swap(m.elements[0][1], m.elements[1][0]);
+    Swap(m.elements[0][2], m.elements[2][0]);
+    Swap(m.elements[0][3], m.elements[3][0]);
+    Swap(m.elements[1][2], m.elements[2][1]);
+    Swap(m.elements[1][3], m.elements[3][1]);
+    Swap(m.elements[2][3], m.elements[3][2]);
+    return m;
+}
+
+Mat3
+Transpose(Mat3 m)
+{
+    Swap(m.elements[0][1], m.elements[1][0]);
+    Swap(m.elements[0][2], m.elements[2][0]);
+    Swap(m.elements[1][2], m.elements[2][1]);
+    return m;
+}
+
+Mat4
+Translate(const Mat4& m, Vec3d translation)
+{
+    Mat4 translate = Identity();
+    translate.elements[3][0] = translation.x;
+    translate.elements[3][1] = translation.y;
+    translate.elements[3][2] = translation.z;
+    return m * translate;
+}
+
+Mat4
+Rotate(const Mat4& m, double angle, Vec3d axis)
+{
+    const double sinTheta = sinf(angle);
+    const double cosTheta = cosf(angle);
+    const double cosValue = 1.0f - cosTheta;
+
+    Normalise(axis);
+    Mat4 rotate = Identity();
+
+    rotate.elements[0][0] = (axis.x * axis.x * cosValue) + cosTheta;
+    rotate.elements[0][1] = (axis.x * axis.y * cosValue) + (axis.z * sinTheta);
+    rotate.elements[0][2] = (axis.x * axis.z * cosValue) - (axis.y * sinTheta);
+
+    rotate.elements[1][0] = (axis.y * axis.x * cosValue) - (axis.z * sinTheta);
+    rotate.elements[1][1] = (axis.y * axis.y * cosValue) + cosTheta;
+    rotate.elements[1][2] = (axis.y * axis.z * cosValue) + (axis.x * sinTheta);
+
+    rotate.elements[2][0] = (axis.z * axis.x * cosValue) + (axis.y * sinTheta);
+    rotate.elements[2][1] = (axis.z * axis.y * cosValue) - (axis.x * sinTheta);
+    rotate.elements[2][2] = (axis.z * axis.z * cosValue) + cosTheta;
+
+    return m * rotate;
+}
+
+Mat4
+Identity()
+{
+    Mat4 m = { 0 };
+    m.elements[0][0] = m.elements[1][1] = m.elements[2][2] = m.elements[3][3] = 1.0f;
+    return m;
+}
+
+Mat4
+LookAt(const Vec3d& eye, const Vec3d& center, const Vec3d& up)
+{
+    const Vec3d f = Normalised(center - eye);
+    const Vec3d s = Normalised(CrossProduct(f, up));
+    const Vec3d u = CrossProduct(s, f);
+
+    Mat4 dest;
+    dest.elements[0][0] = s.x;
+    dest.elements[0][1] = u.x;
+    dest.elements[0][2] = -f.x;
+    dest.elements[0][3] = 0;
+
+    dest.elements[1][0] = s.y;
+    dest.elements[1][1] = u.y;
+    dest.elements[1][2] = -f.y;
+    dest.elements[1][3] = 0;
+
+    dest.elements[2][0] = s.z;
+    dest.elements[2][1] = u.z;
+    dest.elements[2][2] = -f.z;
+    dest.elements[2][3] = 0;
+
+    dest.elements[3][0] = -DotProduct(s, eye);
+    dest.elements[3][1] = -DotProduct(u, eye);
+    dest.elements[3][2] = DotProduct(f, eye);
+    dest.elements[3][3] = 1.0f;
+    return dest;
+}
+
+Mat4
+Perspective(double fovy, double aspect, double zNear, double zFar)
+{
+    const double f = 1.0f / tanf(fovy * 0.5f);
+    const double fn = 1.0f / (zNear - zFar);
+    Mat4 dest = { 0 };
+    dest.elements[0][0] = f / aspect;
+    dest.elements[1][1] = f;
+    dest.elements[2][2] = (zNear + zFar) * fn;
+    dest.elements[2][3] = -1.0f;
+    dest.elements[3][2] = 2.0f * zNear * zFar * fn;
+    return dest;
+}
+
+//----------------------------------------------------------//
 #endif // GEDO_IMPLEMENTATION
 
 #endif // GEDO_H
