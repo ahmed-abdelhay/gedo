@@ -41,7 +41,6 @@
  *      - StaticArray<T,N>  owning stretchy array of type T allocated on the stack with max size N.
  *      - Array<T,N>        owning stretchy array of type T allocated using Allocator*.
  *      - HashTable<T>      TODO.
- *
  * - Maths:
  *      - Math code uses double not float.
  *      - 2D/3D Vector.
@@ -52,10 +51,8 @@
  *      - commonly used functions in computer graphics like Perspective and lookAt.
  *
  *      TODO: Add SIMD support.
- *
  * - UUID:
  *      Provides a cross platform UUID generation function and compare.
- *
  * - File I/O:
  *      Provides a cross platform way of handling files.
  *      - Read whole file           ReadFile(const char* fileName, Allocator& allocator);
@@ -63,7 +60,6 @@
  *      - Check if a file exists    DoesFileExist(const char* fileName, Allocator& allocator);
  *      - Get the file size         GetFileSize(const char* fileName, Allocator& allocator);
  *      - Check a path type         GetPathType(const char* path, Allocator& allocator);
- *
  * - Strings:
  *      Provides custom implementation of both String (owning container) and StringView (non owning view).
  *      it uses the Allocator* interface for managing memory
@@ -77,7 +73,6 @@
  *          - SplitStringView(const char* string, char delim, Allocator& allocator);
  *          - SplitStringIntoLines(const char* string, Allocator& allocator);
  *          - SplitStringViewIntoLines(const char* string, char delim, Allocator& allocator);
- *
  * - Bitmaps:
  *      Provide a way of creating bitmap (colored and mono) and blit data to the bitmap,
  *      it also provide some util for creating colors, rect, and define some common colors.
@@ -87,22 +82,8 @@
  *            FillRectangle(ColorBitmap& dest, Rect fillArea, Color color);
  *
  */
-#pragma once
 
-#if ! defined (GEDO_DYNAMIC_LIBRARY)
-  #define GEDO_DEF static
-#else 
- // dynamic library
-#if defined (GEDO_OS_WINDOWS)
-  #if defined (GEDO_IMPLEMENTATION)
-    #define GEDO_DEF __declspec(dllexport) 
-  #else
-    #define GEDO_DEF __declspec(dllimport) 
-  #endif
-  #esle // not GEDO_OS_WINDOWS
-    #define GEDO_DEF 
-#endif // GEDO_OS_WINDOWS
-#endif
+#pragma once
 
 #include <stdint.h>
 #include <math.h>
@@ -114,8 +95,8 @@
 #define WIN32_LEAN_AND_MEAN
 #define WIN32_MEAN_AND_LEAN
 #define VC_EXTRALEAN
-#include <windows.h>
 #pragma comment(lib, "rpcrt4.lib")  // UuidCreate - Minimum supported OS Win 2000
+#include <windows.h>
 #include <Rpc.h>
 #undef NOMINMAX
 #undef WIN32_LEAN_AND_MEAN
@@ -123,7 +104,8 @@
 #undef VC_EXTRALEAN
 #elif defined __linux__
 #define GEDO_OS_LINUX 1
-#include <uuid/uuid.h>
+#include <uuid/uuid.h> // user will have to link against libuuid.
+#include <sys/stat.h>
 #include <stdio.h>
 #else
 #error "Not supported OS"
@@ -145,6 +127,22 @@
 #define GEDO_MEMSET memset
 #define GEDO_MEMCPY memcpy
 #endif // GEDO_MALLOC
+
+#if defined (GEDO_DYNAMIC_LIBRARY)
+ // dynamic library
+#if defined (GEDO_OS_WINDOWS)
+#if defined (GEDO_IMPLEMENTATION)
+#define GEDO_DEF __declspec(dllexport) 
+#else
+#define GEDO_DEF __declspec(dllimport) 
+#endif
+#else // ! GEDO_OS_WINDOWS
+#define GEDO_DEF 
+#endif // GEDO_OS_WINDOWS
+#else 
+ // static library
+#define GEDO_DEF static
+#endif
 
 template<typename F>
 struct privDefer
@@ -279,7 +277,7 @@ namespace gedo
     }
 
     template <typename T, typename TCompare, typename TPredicate>
-    int64_t BinarySearch(T* p, size_t size, TCompare compare, TPredicate predicate)
+    int64_t BinarySearch(T* p, size_t size, const T& key, TCompare compare, TPredicate predicate)
     {
         size_t low = 0;
         size_t high = size - 1;
@@ -310,15 +308,15 @@ namespace gedo
     template <typename T>
     int64_t BinarySearch(T* p, size_t size, const T& key)
     {
-        BinarySearch(p, size,
-                     [](const T& a, const T& b)
-                     {
-                         return a < b;
-                     },
-                     [key](const T& a)
-                     {
-                         return a == key;
-                     });
+        return BinarySearch(p, size, key,
+                            [](const T& a, const T& b)
+                            {
+                                return a < b;
+                            },
+                            [](const T& a, const T& b)
+                            {
+                                return a == b;
+                            });
     }
     //--------------------------------------------------//
 
@@ -356,6 +354,9 @@ namespace gedo
         double data[16];
     };
 
+    GEDO_DEF double Deg2Rad(double v);
+    GEDO_DEF double Rad2Deg(double v);
+
     GEDO_DEF Vec2d operator+(const Vec2d a, const Vec2d& b);
     GEDO_DEF Vec2d operator-(const Vec2d a, const Vec2d& b);
     GEDO_DEF Vec2d operator*(const Vec2d a, const Vec2d& b);
@@ -391,8 +392,7 @@ namespace gedo
      * @param[in] zNear   Specifies the distance from the viewer to the near clipping plane (always positive).
      * @param[in] zFar    Specifies the distance from the viewer to the far clipping plane (always positive).
     */
-    GEDO_DEF Mat4 Perspective(double fovy, double aspect,
-                              double zNear, double zFar);
+    GEDO_DEF Mat4 Perspective(double fovy, double aspect, double zNear, double zFar);
 
     /*!
      * @brief set up view matrix
@@ -406,17 +406,6 @@ namespace gedo
      * @param[out] dest   result matrix
      */
     GEDO_DEF Mat4 LookAt(const Vec3d& eye, const Vec3d& center, const Vec3d& up);
-
-    inline double Deg2Rad(double v)
-    {
-        return (PI / 180.0) * v;
-    }
-
-    inline double Rad2Deg(double v)
-    {
-        return (180.0 / PI) * v;
-    }
-
     //--------------------------------------------------//
 
     //-----------------UUID-----------------------------//
@@ -426,8 +415,8 @@ namespace gedo
     };
 
     GEDO_DEF UUId GenerateUUID();
-
     GEDO_DEF bool CompareUUID(const UUId& a, const UUId& b);
+    //--------------------------------------------------//
 
     //-----------------Memory --------------------------//
     struct MemoryBlock
@@ -478,11 +467,9 @@ namespace gedo
 
     GEDO_DEF MallocAllocator* CreateMallocAllocator();
     GEDO_DEF void DestroyMallocAllocator(MallocAllocator* allocator);
-
     //------------------------------------------------------------//
 
     //--------------------------------File IO---------------------//
-    // File names are utf8 encoded.
     enum class PathType
     {
         FAILURE,
@@ -490,16 +477,15 @@ namespace gedo
         DIRECTORY
     };
 
+    // File names are utf8 encoded.
     GEDO_DEF MemoryBlock ReadFile(const char* fileName, Allocator& allocator = GetDefaultAllocator());
     GEDO_DEF bool WriteFile(const char* fileName, MemoryBlock block, Allocator& allocator = GetDefaultAllocator());
     GEDO_DEF bool DoesFileExist(const char* fileName, Allocator& allocator = GetDefaultAllocator());
     GEDO_DEF int64_t GetFileSize(const char* fileName, Allocator& allocator = GetDefaultAllocator());
     GEDO_DEF PathType GetPathType(const char* path, Allocator& allocator = GetDefaultAllocator());
-
     //------------------------------------------------------------//
 
     //------------------------------Containers--------------------//
-
     template<typename T>
     struct ArrayView
     {
@@ -737,7 +723,6 @@ namespace gedo
         result.size = ArrayCount(arr);
         return result;
     }
-
     //-------------------------------------------------------------//
 
     //--------------------------Strings----------------------------//
@@ -938,13 +923,12 @@ namespace gedo
     GEDO_DEF Array<StringView> SplitStringView(const char* string, char delim, Allocator& allocator = GetDefaultAllocator());
     GEDO_DEF Array<String> SplitStringIntoLines(const char* string, Allocator& allocator = GetDefaultAllocator());
     GEDO_DEF Array<StringView> SplitStringViewIntoLines(const char* string, char delim, Allocator& allocator = GetDefaultAllocator());
-
     //-------------------------------------------------------------//
 
     //------------------------------Bitmap-------------------------//
-    // 0xRRGGBBAA
     struct Color
     {
+        // 0xRRGGBBAA
         uint8_t a = 0;
         uint8_t b = 0;
         uint8_t g = 0;
@@ -996,6 +980,7 @@ namespace gedo
 
 #if defined GEDO_IMPLEMENTATION
 
+    //----------------------------Memory-------------------------//
     static Allocator* defaultAllocator = CreateMallocAllocator();
 
     Allocator& GetDefaultAllocator()
@@ -1134,7 +1119,6 @@ namespace gedo
         block.data = NULL;
         return true;
     }
-
     //-----------------------------------------------------------//
 
     //-------------------------Bitmap manipulation---------------//
@@ -1232,7 +1216,6 @@ namespace gedo
         allocator.FreeMemoryBlock(block);
         bitmap.data = NULL;
     }
-
     //-----------------------------------------------------------//
 
     //--------------------------------File IO---------------------//
@@ -1351,42 +1334,39 @@ namespace gedo
         {
             defer(CloseHandle(handle));
             FILE_BASIC_INFO basicInfo;
-            GetFileInformationByHandleEx(
-                handle, FileBasicInfo, &basicInfo, sizeof(basicInfo));
+            GetFileInformationByHandleEx(handle, FileBasicInfo, &basicInfo, sizeof(basicInfo));
             return (basicInfo.FileAttributes & FILE_ATTRIBUTE_DIRECTORY)
                 ? PathType::DIRECTORY
                 : PathType::FILE;
         }
         return PathType::FAILURE;
     }
-
 #elif defined GEDO_OS_LINUX
-
     MemoryBlock ReadFile(const char* fileName, Allocator& allocator)
     {
-        FILE* fp = fopen(filename, 'r');
+        FILE* fp = fopen(fileName, "r");
         MemoryBlock result;
         if (fp)
         {
-            defer(fclose(fp));
             fseek(fp, 0, SEEK_END);
             const int64_t size = ftell(fp);
             fseek(fp, 0, SEEK_SET);
             result = allocator.AllocateMemoryBlock(size + 1);
             fread(result.data, 1, size, fp);
             result.data[size] = 0;
+            fclose(fp);
         }
         return result;
     }
 
     bool WriteFile(const char* fileName, MemoryBlock block, Allocator& allocator)
     {
-        FILE* fp = fopen(filename, 'w');
+        FILE* fp = fopen(fileName, "w");
         MemoryBlock result;
         if (fp)
         {
-            defer(fclose(fp));
             fwrite(result.data, 1, result.size, fp);
+            fclose(fp);
             return true;
         }
         return false;
@@ -1394,7 +1374,7 @@ namespace gedo
 
     bool DoesFileExist(const char* fileName, Allocator& allocator)
     {
-        FILE* fp = fopen(filename, 'r');
+        FILE* fp = fopen(fileName, "r");
         if (fp)
         {
             fclose(fp);
@@ -1405,11 +1385,11 @@ namespace gedo
 
     int64_t GetFileSize(const char* fileName, Allocator& allocator)
     {
-        FILE* fp = fopen(filename, 'r');
+        FILE* fp = fopen(fileName, "r");
         if (fp)
         {
-            defer(fclose(fp));
             fseek(fp, 0, SEEK_END);
+            fclose(fp);
             const int64_t size = ftell(fp);
             return size;
         }
@@ -1430,7 +1410,7 @@ namespace gedo
                 return PathType::FILE;
             }
         }
-        return PathType::ERROR;
+        return PathType::FAILURE;
     }
 #endif
     //------------------------------------------------------------//
@@ -1794,6 +1774,7 @@ namespace gedo
     {
         UUId result;
         uuid_generate(result.data);
+        return result;
     }
 #endif
     bool CompareUUID(const UUId& a, const UUId& b)
@@ -1807,7 +1788,6 @@ namespace gedo
         }
         return true;
     }
-
     //------------------------------------------------------------//
 
     //--------------------Math-----------------------------------//
@@ -2066,6 +2046,15 @@ namespace gedo
         return dest;
     }
 
+    double Deg2Rad(double v)
+    {
+        return (PI / 180.0) * v;
+    }
+
+    double Rad2Deg(double v)
+    {
+        return (180.0 / PI) * v;
+    }
     //----------------------------------------------------------//
 #endif // GEDO_IMPLEMENTATION
 }
