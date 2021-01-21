@@ -90,14 +90,18 @@
 #pragma once
 
 #if ! defined (GEDO_DYNAMIC_LIBRARY)
-#define GEDO_DEF static
+  #define GEDO_DEF static
 #else 
  // dynamic library
-#if defined (GEDO_IMPLEMENTATION)
-#define GEDO_DEF __declspec(dllexport) 
-#else
-#define GEDO_DEF __declspec(dllimport) 
-#endif
+#if defined (GEDO_OS_WINDOWS)
+  #if defined (GEDO_IMPLEMENTATION)
+    #define GEDO_DEF __declspec(dllexport) 
+  #else
+    #define GEDO_DEF __declspec(dllimport) 
+  #endif
+  #esle // not GEDO_OS_WINDOWS
+    #define GEDO_DEF 
+#endif // GEDO_OS_WINDOWS
 #endif
 
 #include <stdint.h>
